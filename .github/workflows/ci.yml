@@ -1,0 +1,116 @@
+name: DL Risk Model – CI
+
+on:
+  push:
+    branches: ["main", "master", "dev"]
+    paths:
+      - "dl_advanced_risk_model.ipynb"
+      - "tests/**"
+      - ".github/workflows/ci.yml"
+      - "requirements-ci.txt"
+  pull_request:
+    branches: ["main", "master"]
+
+jobs:
+  # ── Job 1: notebook JSON lint ────────────────────────────────────────────────
+  notebook-lint:
+    name: Notebook JSON & syntax lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Validate notebook JSON
+        run: |
+          python - <<'EOF'
+          import json, sys
+          path = "dl_advanced_risk_model.ipynb"
+          with open(path) as f:
+              nb = json.load(f)
+          print(f"nbformat: {nb['nbformat']}")
+          print(f"Cells   : {len(nb['cells'])}")
+          assert nb["nbformat"] == 4, "Expected nbformat 4"
+          code_cells = [c for c in nb["cells"] if c["cell_type"] == "code"]
+          print(f"Code cells: {len(code_cells)}")
+          EOF
+
+      - name: Check code-cell syntax (ast)
+        run: |
+          python - <<'EOF'
+          import json, ast, sys
+          with open("dl_advanced_risk_model.ipynb") as f:
+              nb = json.load(f)
+          errors = []
+          for i, cell in enumerate(nb["cells"]):
+              if cell["cell_type"] != "code":
+                  continue
+              src = "".join(cell["source"])
+              lines = [
+                  ("pass  # magic: " + ln if ln.lstrip().startswith("%") else ln)
+                  for ln in src.splitlines(keepends=True)
+              ]
+              try:
+                  ast.parse("".join(lines))
+              except SyntaxError as e:
+                  errors.append(f"Cell {i} (id={cell['id']}): {e}")
+          if errors:
+              for err in errors:
+                  print("SYNTAX ERROR:", err)
+              sys.exit(1)
+          print(f"All {sum(1 for c in nb['cells'] if c['cell_type']=='code')} code cells OK")
+          EOF
+
+  # ── Job 2: unit tests ────────────────────────────────────────────────────────
+  unit-tests:
+    name: Unit tests (pure-Python, no Spark/JVM)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-${{ hashFiles('requirements-ci.txt') }}
+          restore-keys: pip-${{ runner.os }}-
+
+      - name: Install CI dependencies
+        run: pip install -r requirements-ci.txt
+
+      - name: Run unit tests
+        run: pytest tests/ -v --tb=short --no-header -q
+
+  # ── Job 3: notebook execution smoke-test (CPU only, no Spark) ───────────────
+  notebook-smoke:
+    name: Notebook smoke-test (extracted pure-Python sections)
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-${{ hashFiles('requirements-ci.txt') }}
+          restore-keys: pip-${{ runner.os }}-
+
+      - name: Install CI dependencies
+        run: pip install -r requirements-ci.txt
+
+      - name: Run smoke-test script
+        run: python tests/smoke_test_models.py
