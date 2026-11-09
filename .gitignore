@@ -1,0 +1,33 @@
+# Virtual environment
+bigdata_env/
+.venv/
+env/
+venv/
+
+# Hadoop & Spark temp files
+hadoop/
+hadoop-3.3.6/
+spark_temp/
+*.log
+
+# Python cache & checkpoints
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# Data & Lakehouse directories (large generated data)
+data/raw/
+data/lakehouse/
+data/reports/*.csv
+
+# PyTorch / ML model weights
+models/*.pt
+models/*.bin
+models/*.pth
+mlruns/
+.optuna/
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
