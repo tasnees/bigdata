@@ -206,3 +206,4 @@ os.environ["PYSPARK_SUBMIT_ARGS"] = f'--driver-java-options "-Dhadoop.home.dir={
 ### 4. Running the Pipelines
 1. Execute `yahoo_finance_only_investment_risk_pyspark.ipynb` to ingest market data and populate the **Bronze**, **Silver**, and **Gold** Delta lakes.
 2. Execute `dl_advanced_risk_model.ipynb` to run technical feature engineering, train the deep learning architectures, perform Optuna HPO, evaluate SHAP interpretability, and output deep-learning volatility forecasts to `data/lakehouse/gold/dl_risk_scores`.
+
